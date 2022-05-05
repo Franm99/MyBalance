@@ -1,0 +1,6 @@
+py-moneyed>=2.0
+strenum>=0.4.7
+pyyaml>=6.0
+balance>=0.1.0
+pick>=1.2.0
+setuptools>=61.2.0
