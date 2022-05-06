@@ -15,8 +15,8 @@ import time
 
 class Window(StrEnum):
     Start = 'A'
-    Login = 'B'
-    Sign = 'C'
+    SignIn = 'B'
+    SignUp = 'C'
     Options = 'D'
     Exit = 'X'
 
@@ -36,22 +36,22 @@ class BashUI:
         title = "Check your balance"
         option, index = pick(options, title)
         if index == 0:
-            self.log_in()
+            self.sign_up()
         elif index == 1:
-            self.sign_in()
+            self.sign_up()
         elif index == 2:
             self.exit()
 
-    def log_in(self):
+    def sign_in(self):
         # todo: Add log-in step. Check db
-        self.window = Window.Login
+        self.window = Window.SignIn
         self.option_menu()
 
-    def sign_in(self):
+    def sign_up(self):
         # todo: Add sign-in step. Add new user to db
-        self.window = Window.Sign
+        self.window = Window.SignUp
         print("Sign your data...")
-        print("Signed in")
+        print("Welcome, <user_name>!")
         self.option_menu()
 
     def option_menu(self):
