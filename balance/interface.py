@@ -12,6 +12,11 @@ from pick import pick
 import os
 import time
 
+from balance.account import Account
+from balance.rsc import *
+from balance.database import DataBase
+
+DB_PATH = 'db'
 
 class Window(StrEnum):
     Start = 'A'
@@ -21,10 +26,12 @@ class Window(StrEnum):
     Exit = 'X'
 
 
-class BashUI:
+class UI:
     """ Class to define the states that the User Interface can have in a bash terminal. """
     def __init__(self):
         self.window = None
+        self.account = None
+        self.database = None
         self.start()
 
     def start(self):
@@ -32,11 +39,11 @@ class BashUI:
         # todo: Check if database exists, create if not
         # Options: (1) Log in, (2) Sign in, (3) Exit.
         self.window = Window.Start
-        options = ["Log in", "Sign in", "Exit"]
+        options = ["Sign in", "Sign up", "Exit"]
         title = "Check your balance"
         option, index = pick(options, title)
         if index == 0:
-            self.sign_up()
+            self.sign_in()
         elif index == 1:
             self.sign_up()
         elif index == 2:
@@ -45,14 +52,35 @@ class BashUI:
     def sign_in(self):
         # todo: Add log-in step. Check db
         self.window = Window.SignIn
-        self.option_menu()
+
+        print("SIGN IN")
+        username = self._request_username()
+        user_db = f"{DB_PATH}/{username}.db"
+
+        if os.path.exists(user_db):
+            self.database = DataBase(user_db)
+            print("Loading your account data. Wait a second...")
+        else:
+            title = "This user is not registered yet"
+            options = ["Try again", "Sign up"]
+            option, index = pick(options, title)
+            if index == 0:
+                self.sign_in()
+            else:
+                self.sign_up()
+        # self.option_menu()
 
     def sign_up(self):
         # todo: Add sign-in step. Add new user to db
         self.window = Window.SignUp
-        print("Sign your data...")
-        print("Welcome, <user_name>!")
-        self.option_menu()
+        print("SIGN UP")
+        username = self._request_username()
+        user_db = f"{DB_PATH}/{username}.db"
+        self.database = DataBase(user_db)
+
+        deposit = input("Your initial deposit: ")  # todo: option for emptu deposit
+        self.database.create_table(deposit)
+        # self.option_menu()
 
     def option_menu(self):
         # todo: prepare account data to be consulted
@@ -99,6 +127,13 @@ class BashUI:
         print("Bye!")
         time.sleep(0.5)
         exit()
+
+    @staticmethod
+    def _request_username():
+        name = input("Name: ")
+        surname = input("Surname: ")
+        user = f"{name.lower()}{surname.lower()}"
+        return user
 
 
 

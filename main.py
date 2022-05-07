@@ -6,11 +6,11 @@ Date: 01/05/2022
 Desc: 
 # Fill 
 """
-from balance.bash_gui import BashUI
+from balance.interface import UI
 
 
 def main():
-    ui = BashUI()
+    ui = UI()
 
 
 if __name__ == '__main__':
