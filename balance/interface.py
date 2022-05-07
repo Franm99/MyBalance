@@ -36,8 +36,6 @@ class UI:
 
     def start(self):
         """ Initial state: Logging window. """
-        # todo: Check if database exists, create if not
-        # Options: (1) Log in, (2) Sign in, (3) Exit.
         self.window = Window.Start
         options = ["Sign in", "Sign up", "Exit"]
         title = "Check your balance"
@@ -50,8 +48,8 @@ class UI:
             self.exit()
 
     def sign_in(self):
-        # todo: Add log-in step. Check db
         self.window = Window.SignIn
+        os.system('cls')
 
         print("SIGN IN")
         username = self._request_username()
@@ -67,20 +65,20 @@ class UI:
             if index == 0:
                 self.sign_in()
             else:
-                self.sign_up()
-        # self.option_menu()
+                self.sign_up(username)
+        self.option_menu()
 
-    def sign_up(self):
-        # todo: Add sign-in step. Add new user to db
+    def sign_up(self, username=None):
         self.window = Window.SignUp
         print("SIGN UP")
-        username = self._request_username()
+        if not username:
+            username = self._request_username()
         user_db = f"{DB_PATH}/{username}.db"
         self.database = DataBase(user_db)
 
-        deposit = input("Your initial deposit: ")  # todo: option for emptu deposit
+        deposit = input("Your initial deposit: ")  # todo: option for empty deposit
         self.database.create_table(deposit)
-        # self.option_menu()
+        self.option_menu()
 
     def option_menu(self):
         # todo: prepare account data to be consulted
@@ -103,7 +101,10 @@ class UI:
     def set_income(self):
         # todo: save movement in account history
         os.system('cls')
-        input("Introduce your income: ")
+        income = input("Introduce your income: ")
+        category = input("Introduce the income category (e.g., WORK): ")
+        desc = input("Introduce a description: ")
+        self.database.new_entry(amount=income, category=category, desc=desc)
         input("Press any key to continue with other movements")
         self.option_menu()
 

@@ -25,24 +25,30 @@ class DataBase:
         self.cursor = self.connection.cursor()
 
     def create_table(self, deposit):
+        # todo: add date field and code
         self.cursor.execute(
-            "CREATE TABLE account(id integer PRIMARY KEY, date text, balance text, movement text, amount real, category text, desc text)"
+            "CREATE TABLE account(id INTEGER PRIMARY KEY, balance text, movement text, amount real, category text, desc text)"
         )
+
         # Add first movement
-        # date_id = time.strftime("%m-%d-%y %H:%M:%S")
-        date_id = time.strftime("05-07-22")
         self.cursor.execute(
-            f"INSERT INTO account VALUES(1, {date_id}, {deposit}, 'INCOME', {deposit}, 'NEW_ACCOUNT', 'new account')"
+            f"INSERT INTO account(balance, movement, amount, category, desc) VALUES({deposit}, 'INCOME', {deposit}, 'NEW_ACCOUNT', 'new account')"
         )
         self.connection.commit()
 
-    def find_account(self, account: Account):
-        pass
-
-    def new_account(self, account: Account):
-        acc_data = account.asdict()
-        with open(self.db_file, 'w+') as f:
-            yaml.dump(acc_data, f)
+    def new_entry(self, amount, category, desc):
+        # Balance will be read from the last movement
+        self.cursor.execute("SELECT balance FROM account ORDER BY id DESC LIMIT 1")
+        last_balance = self.cursor.fetchone()[0]
+        # todo: improve the add method
+        curr_balance = str(float(last_balance) + float(amount))
+        entities = (curr_balance, 'INCOME', amount, category, desc)
+        self.cursor.execute(
+            """INSERT INTO account(balance, movement, amount, category, desc)
+               VALUES (?, ?, ?, ?, ?)""",
+            entities
+        )
+        self.connection.commit()
 
 
 
