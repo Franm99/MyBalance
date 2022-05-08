@@ -99,26 +99,27 @@ class UI:
             self.exit()
 
     def set_income(self):
-        # todo: save movement in account history
         os.system('cls')
         income = input("Introduce your income: ")
         category = input("Introduce the income category (e.g., WORK): ")
         desc = input("Introduce a description: ")
-        self.database.new_entry(amount=income, category=category, desc=desc)
+        self.database.new_income(amount=income, category=category, desc=desc)
         input("Press any key to continue with other movements")
         self.option_menu()
 
     def set_expense(self):
-        # todo: save movement in account history
         os.system('cls')
-        input("Introduce your expense: ")
+        expense = input("Introduce your expense: ")
+        category = input("Introduce the expense category (e.g., GROCERY): ")
+        desc = input("Introduce a description: ")
+        self.database.new_expense(amount=expense, category=category, desc=desc)
         input("Press any key to continue with other movements")
         self.option_menu()
 
     def see_balance(self):
-        # todo: show current balance
         os.system('cls')
-        print("Your actual balance is XXX")
+        current_balance = self.database.current_balance()
+        print(f"Your actual balance is {current_balance}")
         input("Press any key to continue with other movements")
         self.option_menu()
 

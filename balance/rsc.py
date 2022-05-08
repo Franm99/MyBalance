@@ -8,35 +8,40 @@ Desc:
 """
 from dataclasses import dataclass
 from typing import List
+from strenum import StrEnum
 from enum import Enum, auto
 from moneyed import Money
 import time
 
 
 # ENUMS
-class Category(Enum):
-    Groceries = auto()
-    Work = auto()
-    Leisure = auto()
-    Transport = auto()
-    Other = auto()
-    NewAccount = auto()
+class Category(StrEnum):
+    # Incomes
+    Bizum = "BIZUM"
+    Work = "WORK"
+    # Expenses
+    Groceries = "GROCERIES"
+    NewAccount = "NEW_ACCOUNT"
+    Leisure = "LEISURE"
+    Transport = "TRANSPORT"
+    Withdraw = "WITHDRAW"
+    Other = "OTHER"
 
 
-class Movement(Enum):
+class Concept(StrEnum):
     """ Class defining the possible money movements that can be made within a balance account. """
-    Income = auto()
-    Expense = auto()
+    Income = "INCOME"
+    Expense = "EXPENSE"
 
 
 # DATACLASSES
 @dataclass
 class Entry:
-    """ Movement entry with some descriptors. """
+    """ Concept entry with some descriptors. """
     category: Category
     code: str
     desc: str
-    movement: Movement
+    concept: Concept
     quantity: Money
 
 

@@ -39,7 +39,7 @@ class Account:
 #                       history=History(entries=[]))
 #
 #     account.add_entry(Entry(code='060522_1154',
-#                             movement=Movement.Income,
+#                             movement=Concept.Income,
 #                             quantity=Money('200', 'EUR'),
 #                             category=Category.Work,
 #                             desc="payment advance"))
