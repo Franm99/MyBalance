@@ -15,6 +15,7 @@ import time
 from balance.account import Account
 from balance.rsc import *
 from balance.database import DataBase
+from balance.utils import normalize_money_amount
 
 DB_PATH = 'db'
 
@@ -37,9 +38,7 @@ class UI:
     def start(self):
         """ Initial state: Logging window. """
         self.window = Window.Start
-        options = ["Sign in", "Sign up", "Exit"]
-        title = "Check your balance"
-        option, index = pick(options, title)
+        index = self._pick_option(["Sign in", "Sign up", "Exit"], "Welcome to MyBalance, Your Bank Management System!")
         if index == 0:
             self.sign_in()
         elif index == 1:
@@ -50,18 +49,16 @@ class UI:
     def sign_in(self):
         self.window = Window.SignIn
         os.system('cls')
-
         print("SIGN IN")
         username = self._request_username()
         user_db = f"{DB_PATH}/{username}.db"
 
         if os.path.exists(user_db):
             self.database = DataBase(user_db)
+            self.select_bank()
             print("Loading your account data. Wait a second...")
         else:
-            title = "This user is not registered yet"
-            options = ["Try again", "Sign up"]
-            option, index = pick(options, title)
+            index = self._pick_option(["Try again", "Sign up"], f"No data found for {username}")
             if index == 0:
                 self.sign_in()
             else:
@@ -75,32 +72,42 @@ class UI:
             username = self._request_username()
         user_db = f"{DB_PATH}/{username}.db"
         self.database = DataBase(user_db)
-
-        deposit = input("Your initial deposit: ")  # todo: option for empty deposit
-        self.database.create_table(deposit)
+        bank = self._request_bank_name()
+        self.database.create_table(bank)
         self.option_menu()
 
     def option_menu(self):
         # todo: prepare account data to be consulted
         self.window = Window.Options
-        title = "Select your movement"
-        options = ["Set income", "Set expense", "See balance", "Log out", "Exit"]
-        option, index = pick(options, title)
+        options = ["New movement", "Balance Enquiry", "Settings", "Log out", "Exit"]
+        index = self._pick_option(options, title="ACTIONS")
 
         if index == 0:
-            self.set_income()
+            self.new_movement()
         elif index == 1:
-            self.set_expense()
+            self.balance_enquiry()
         elif index == 2:
-            self.see_balance()
+            self.settings()
         elif index == 3:
             self.start()
         elif index == 4:
             self.exit()
 
+    def new_movement(self):
+        index = self._pick_option(["Income", "Expense", "Transaction", "Return"], "Select your next movement:")
+        if index == 0:
+            self.set_income()
+        elif index == 1:
+            self.set_expense()
+        elif index == 2:
+            raise NotImplementedError("Transaction")
+        elif index == 3:
+            self.option_menu()
+
     def set_income(self):
         os.system('cls')
         income = input("Introduce your income: ")
+        income = normalize_money_amount(income)
         category = input("Introduce the income category (e.g., WORK): ")
         desc = input("Introduce a description: ")
         self.database.new_income(amount=income, category=category, desc=desc)
@@ -110,18 +117,57 @@ class UI:
     def set_expense(self):
         os.system('cls')
         expense = input("Introduce your expense: ")
+        expense = normalize_money_amount(expense)
         category = input("Introduce the expense category (e.g., GROCERY): ")
         desc = input("Introduce a description: ")
         self.database.new_expense(amount=expense, category=category, desc=desc)
         input("Press any key to continue with other movements")
         self.option_menu()
 
+    def balance_enquiry(self):
+        index = self._pick_option(["Current balance", "Last movements", "Export history", "Return"], "Select a type of enquiry:")
+        if index == 0:
+            self.see_balance()
+        elif index == 1:
+            raise NotImplementedError("Last movements")
+        elif index == 2:
+            raise NotImplementedError("Export History")
+        elif index == 3:
+            self.option_menu()
+
     def see_balance(self):
+        # TODO: When showing the current balance, display table with most recent movements
         os.system('cls')
         current_balance = self.database.current_balance()
         print(f"Your actual balance is {current_balance}")
         input("Press any key to continue with other movements")
         self.option_menu()
+
+    def settings(self):
+        index = self._pick_option(["Switch account", "Delete account", "Modify your profile", "Return"])
+        if index == 0:
+            raise NotImplementedError("Switch Account")
+        elif index == 1:
+            raise NotImplementedError("Delete Account")
+        elif index == 2:
+            raise NotImplementedError("Modify your profile")
+        elif index == 3:
+            self.option_menu()
+
+    def select_bank(self):
+        bank_list = self.database.check_accounts()
+        if len(bank_list) == 0:
+            print("Your account is not attached to any bank yet. Select one. ")
+            bank = self._request_bank_name()
+            self.database.create_table(name=bank)
+            self.option_menu()
+        elif len(bank_list) == 1:
+            bank = bank_list[0]
+            self.option_menu()
+        else:
+            index = self._pick_option(bank_list, title="Select one of your accounts.")
+            bank = bank_list[index]
+        self.database.target_bank = bank
 
     def exit(self):
         self.window = Window.Exit
@@ -136,6 +182,16 @@ class UI:
         surname = input("Surname: ")
         user = f"{name.lower()}{surname.lower()}"
         return user
+
+    @staticmethod
+    def _request_bank_name():
+        bank = input("Bank: ")
+        return bank.lower()
+
+    @staticmethod
+    def _pick_option(options: List[str], title: str = "Select an option:") -> int:
+        _, index = pick(options, title)
+        return index
 
 
 

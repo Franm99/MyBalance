@@ -8,58 +8,130 @@ Desc:
 """
 import os
 import sqlite3
-import time
+# import time
+from datetime import datetime
 
 from balance.account import Account
+from balance.utils import normalize_money_amount
+from balance.rsc import Concept
 
 
 class DataBase:
     # Todo: Create base methods to request/insert things from/to database
     def __init__(self, db_file: str):
         self.db_file = db_file
+        self._target_bank = None
 
         try:
             self.connection = sqlite3.connect(self.db_file)
         except sqlite3.Error as error:
             print(error)
-
+            
         self.cursor = self.connection.cursor()
+        self.bank_list = self.check_accounts()
+        if len(self.bank_list) == 1:
+            self._target_bank = self.bank_list[0]
 
-    def create_table(self, deposit):
-        # todo: add date field and code
-        self.cursor.execute(
-            "CREATE TABLE account(id INTEGER PRIMARY KEY, balance text, movement text, amount real, category text, desc text)"
-        )
+    @property
+    def target_bank(self) -> str:
+        return self._target_bank
 
-        # Add first movement
+    @target_bank.setter
+    def target_bank(self, bank):
+        self._target_bank = bank
+
+    def create_table(self, name):
         self.cursor.execute(
-            f"INSERT INTO account(balance, movement, amount, category, desc) VALUES({deposit}, 'INCOME', {deposit}, 'NEW_ACCOUNT', 'new account')"
+            """
+            CREATE TABLE "{}" (
+                                "INDEX"	        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+                                "DATE"	        TEXT    NOT NULL,
+                                "TYPE"	        TEXT    NOT NULL,
+                                "CATEGORY"	    TEXT    NOT NULL,
+                                "AMOUNT"	    NUMERIC NOT NULL,
+                                "DESCRIPTION"	TEXT
+            );
+            """.format(name)
         )
         self.connection.commit()
+        self.bank_list.append(name)
+        self._target_bank = name
 
-    def new_entry(self, movement, amount, category, desc):
-        # Balance will be read from the last movement
-        self.cursor.execute("SELECT balance FROM account ORDER BY id DESC LIMIT 1")
-        last_balance = self.cursor.fetchone()[0]
-        # todo: improve the add method
-        curr_balance = str(float(last_balance) + float(amount))
-        entities = (curr_balance, movement, amount, category, desc)
+    def new_entry(self, movement_type, amount, category, desc):
+        date = datetime.today().strftime('%m-%d-%Y')
+        entities = (date, movement_type, category, amount, desc)
         self.cursor.execute(
-            """INSERT INTO account(balance, movement, amount, category, desc)
-               VALUES (?, ?, ?, ?, ?)""",
+            """
+            INSERT INTO 
+            {}(DATE, TYPE, CATEGORY, AMOUNT, DESCRIPTION)
+            VALUES (?, ?, ?, ?, ?)
+            """.format(self._target_bank),
             entities
         )
         self.connection.commit()
 
     def new_income(self, amount, category, desc):
-        self.new_entry('INCOME', amount, category, desc)
+        self.new_entry(Concept.Income, amount, category, desc)
 
     def new_expense(self, amount, category, desc):
-        amount = str(-float(amount))
-        self.new_entry('EXPENSE', amount, category, desc)
+        amount = normalize_money_amount(amount)
+        self.new_entry(Concept.Expense, amount, category, desc)
 
     def current_balance(self):
+        # TODO REWORK: Read amounts and types and compute balance
         self.cursor.execute(
-            """SELECT balance FROM account ORDER BY id DESC LIMIT 1"""
+            """
+            SELECT TYPE, AMOUNT FROM {} 
+            """.format(self._target_bank)
         )
-        return self.cursor.fetchone()[0]
+        current_balance = 0
+        for t, amount in self.cursor.fetchall():
+            amount = -amount if t == Concept.Expense else amount
+            current_balance += amount
+        return current_balance
+
+    def check_accounts(self):
+        self.cursor.execute(
+            f"""SELECT name FROM sqlite_master WHERE type='table';"""
+        )
+        bank_list = [i[0] for i in self.cursor.fetchall() if i[0] != "sqlite_sequence"]
+        return bank_list
+
+    def _sql_insert(self, **kwargs):
+        keys = f"({', '.join(kwargs.keys())})"
+        values = list(kwargs.values())
+        val_query = '?, ' * len(values)
+        query = f"""INSERT INTO {self._target_bank}{keys} VALUES({val_query[:-2]})"""
+        self.cursor.execute(query, values)
+        self.connection.commit()
+
+    def sql_insert(self, **kwargs):
+        self._sql_insert(**kwargs)
+
+    # def _table_exists(self, table_name: str) -> bool:
+    #     self.cursor.execute(
+    #         f"""SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table_name}';"""
+    #     )
+    #     return self.cursor.fetchone()[0] == 2
+
+
+def deb():
+    def check_if_table_exists(db="../db/franmoreno.db", name="account"):
+        try:
+            connection = sqlite3.connect(db)
+        except sqlite3.Error as error:
+            print(error)
+        cursor = connection.cursor()
+
+        cursor.execute(
+            f"""SELECT name FROM sqlite_master WHERE type='table';"""
+        )
+        print(cursor.fetchall())
+
+    check_if_table_exists()
+
+
+if __name__ == '__main__':
+    # db = DataBase('test.db')
+    # db.sql_insert(movement='INCOME', amount='200.00', desc='description')
+    deb()
