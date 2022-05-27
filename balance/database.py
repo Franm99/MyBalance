@@ -10,24 +10,18 @@ import os
 import sqlite3
 # import time
 from datetime import datetime
+from typing import List
 
 from balance.account import Account
 from balance.utils import normalize_money_amount
-from balance.rsc import Concept, Category
+from balance.rsc import Concept, Category, DB_PATH
 
 
 class DataBase:
-    # Todo: Create base methods to request/insert things from/to database
     def __init__(self, db_file: str):
         self.db_file = db_file
         self._target_bank = None
-
-        try:
-            self.connection = sqlite3.connect(self.db_file)
-        except sqlite3.Error as error:
-            print(error)
-            
-        self.cursor = self.connection.cursor()
+        self.connection, self.cursor = self._connect_to_db()
         self.bank_list = self.check_accounts()
         if len(self.bank_list) == 1:
             self._target_bank = self.bank_list[0]
@@ -57,7 +51,7 @@ class DataBase:
         self.bank_list.append(name)
         self._target_bank = name
 
-    def new_entry(self, movement_type, amount, category, desc):
+    def new_entry(self, movement_type, amount, category, desc, bank):
         date = datetime.today().strftime('%m-%d-%Y')
         entities = (date, movement_type, category, amount, desc)
         self.cursor.execute(
@@ -65,27 +59,20 @@ class DataBase:
             INSERT INTO 
             {}(DATE, TYPE, CATEGORY, AMOUNT, DESCRIPTION)
             VALUES (?, ?, ?, ?, ?)
-            """.format(self._target_bank),
+            """.format(bank),
             entities
         )
         self.connection.commit()
 
     def new_income(self, amount, category, desc):
-        self.new_entry(Concept.Income, amount, category, desc)
+        self.new_entry(Concept.Income, amount, category, desc, bank=self._target_bank)
 
     def new_expense(self, amount, category, desc):
-        amount = normalize_money_amount(amount)
-        self.new_entry(Concept.Expense, amount, category, desc)
+        self.new_entry(Concept.Expense, amount, category, desc, bank=self._target_bank)
 
-    def new_transaction(self, amount, from_bank, to_bank, desc):
-        amount = normalize_money_amount(amount)
-
-        try:
-            self.new_entry(Concept.Expense, amount, Category.Transaction, desc)
-        except NameError:
-            print(f"Can't get access to {from_bank} as it is not being managed at the moment.")
-
-        # TODO Keep working on this
+    def new_transaction(self, amount, to_bank, desc):
+        self.new_entry(Concept.Expense, amount, Category.Transaction, desc, bank=self._target_bank)
+        self.new_entry(Concept.Income, amount, Category.Transaction, desc, bank=to_bank)
 
     def current_balance(self):
         self.cursor.execute(
@@ -99,7 +86,7 @@ class DataBase:
             current_balance += amount
         return normalize_money_amount(current_balance)
 
-    def check_accounts(self):
+    def check_accounts(self) -> List[str]:
         self.cursor.execute(
             f"""SELECT name FROM sqlite_master WHERE type='table';"""
         )
@@ -119,6 +106,25 @@ class DataBase:
             """DROP TABLE {}""".format(self._target_bank)
         )
         self.connection.commit()
+
+    def delete_profile(self):
+        self.connection.close()
+        os.remove(self.db_file)
+        del self
+
+    def rename_owner(self, new_name):
+        self.connection.close()
+        os.rename(self.db_file, f"{DB_PATH}/{new_name}")
+        self.db_file = new_name
+        self.connection, self.cursor = self._connect_to_db()
+
+    def _connect_to_db(self):
+        try:
+            connection = sqlite3.connect(self.db_file)
+            cursor = connection.cursor()
+            return connection, cursor
+        except sqlite3.Error as error:
+            print(error)
 
     def sql_insert(self, **kwargs):
         self._sql_insert(**kwargs)

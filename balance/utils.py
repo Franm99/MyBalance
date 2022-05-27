@@ -6,6 +6,9 @@ Date: 01/05/2022
 Desc: 
 # Fill 
 """
+import os
+import functools
+import time
 
 
 def normalize_money_amount(val: str):
@@ -20,14 +23,17 @@ def normalize_money_amount(val: str):
             val = val.split('.')[0] + '.' + val.split('.')[-1][0:2]
     return val
 
-# if __name__ == '__main__':
-#     val = '2.25'
-#     print(normalize_money_amount(val))
-#     val = '2,25'
-#     print(normalize_money_amount(val))
-#     val = '2'
-#     print(normalize_money_amount(val))
-#     val = '2.0'
-#     print(normalize_money_amount(val))
-#     val = '2.257'
-#     print(normalize_money_amount(val))
+
+def print_and_wait(*args, **kwargs):
+    print(*args, **kwargs)
+    input("Press any key to continue with other movements")
+
+
+def cmd_clear(func):
+    def wrap(*args, **kwargs):
+        os.system('cls')
+        result = func(*args, **kwargs)
+        return result
+    return wrap
+
+

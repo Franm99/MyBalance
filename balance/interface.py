@@ -11,13 +11,13 @@ from strenum import StrEnum
 from pick import pick
 import os
 import time
+from typing import Optional
 
 from balance.account import Account
 from balance.rsc import *
 from balance.database import DataBase
-from balance.utils import normalize_money_amount
+from balance.utils import normalize_money_amount, cmd_clear, print_and_wait
 
-DB_PATH = 'db'
 
 class Window(StrEnum):
     Start = 'A'
@@ -32,13 +32,13 @@ class UI:
     def __init__(self):
         self.window = None
         self.account = None
-        self.database = None
+        self.database = Optional[DataBase]
         self.w_start()
 
     def w_start(self):
         """ Initial state: Logging window. """
-        self.window = Window.Start
-        index = self._pick_option(["Sign in", "Sign up", "Exit"], "Welcome to MyBalance, Your Bank Management System!")
+        index = self._pick_option(["Sign in", "Sign up", "Exit"],
+                                  f"Welcome to {APP_NAME}, Your Bank Management System!")
         if index == 0:
             self.w_sign_in()
         elif index == 1:
@@ -47,11 +47,10 @@ class UI:
             self.w_exit()
 
     def w_sign_in(self):
-        self.window = Window.SignIn
         os.system('cls')
         print("SIGN IN")
         username = self._request_username()
-        user_db = f"{DB_PATH}/{username}.db"
+        user_db = f"{DB_PATH}/{username}"
 
         if os.path.exists(user_db):
             self.database = DataBase(user_db)
@@ -66,19 +65,17 @@ class UI:
         self.w_option_menu()
 
     def w_sign_up(self, username=None):
-        self.window = Window.SignUp
         print("SIGN UP")
         if not username:
             username = self._request_username()
-        user_db = f"{DB_PATH}/{username}.db"
+        user_db = f"{DB_PATH}/{username}"
         self.database = DataBase(user_db)
         self.new_account()
         self.w_option_menu()
 
     def w_option_menu(self):
-        # todo: prepare account data to be consulted
         self.window = Window.Options
-        options = ["New movement", "Balance Enquiry", "Settings", "Log out", "Exit"]
+        options = ["New movement", "Balance Enquiry", "Account Settings", "Log out", "Exit"]
         index = self._pick_option(options, title=f"Bank: {self.database.target_bank}")
 
         if index == 0:
@@ -99,7 +96,7 @@ class UI:
         elif index == 1:
             self.set_expense()
         elif index == 2:
-            raise NotImplementedError("Transaction")
+            self.set_transaction()
         elif index == 3:
             self.w_option_menu()
 
@@ -115,7 +112,7 @@ class UI:
             self.w_option_menu()
 
     def w_settings(self):
-        index = self._pick_option(["Switch account", "New account", "Delete account", "Modify your profile", "Return"])
+        index = self._pick_option(["Switch account", "New account", "Delete bank account", "Your profile", "Return"])
         if index == 0:
             self.select_bank()
         elif index == 1:
@@ -123,65 +120,101 @@ class UI:
         elif index == 2:
             self.delete_account()
         elif index == 3:
-            self.w_modify_profile()
+            self.w_your_profile()
         elif index == 4:
             self.w_option_menu()
 
-    def w_modify_profile(self):
-        index = self._pick_option(["Change Owner", "Change Bank", "Change movement concept", "Return"])
+    def w_your_profile(self):
+        index = self._pick_option(["Update owner", "Modify movement concept", f"Delete {APP_NAME} profile", "Return"])
         if index == 0:
-            raise NotImplementedError("Change Owner")
+            self.rename_owner()
         elif index == 1:
-            raise NotImplementedError("Change Bank")
+            raise NotImplementedError("Modify movement concept")
         elif index == 2:
-            raise NotImplementedError("Change movement concept")
+            self.delete_profile()
         elif index == 3:
             self.w_settings()
 
     def w_exit(self):
-        self.window = Window.Exit
-        os.system('cls')
-        print("Bye!")
-        time.sleep(0.5)
-        exit()
+        self._exit()
 
+    def w_confirmation(self, info: str) -> bool:
+        index = self._pick_option(["Yes", "No"], title=info)
+        return index == 0
+
+    @cmd_clear
     def new_account(self):
         bank = self._request_bank_name()
         self.database.create_table(bank)
         self.w_option_menu()
 
+    @cmd_clear
     def delete_account(self):
-        self.database.delete_account()
-        self.select_bank()
+        if self.w_confirmation(info="Are your sure? All your bank account data will be deleted."):
+            self.database.delete_account()
+            self.select_bank()
+        else:
+            self.w_settings()
 
+    @cmd_clear
+    def delete_profile(self):
+        if self.w_confirmation("WARNING: YOUR WHOLE DATA AND HISTORY WILL BE DELETED FOREVER. ARE YOUR SURE?"):
+            self.database.delete_profile()
+            print(f"Hope to see you again using {APP_NAME}!")
+            time.sleep(1.0)
+            self.w_start()
+        else:
+            self.w_your_profile()
+
+    @cmd_clear
     def set_income(self):
-        os.system('cls')
         income = input("Introduce your income: ")
         income = normalize_money_amount(income)
         category = input("Introduce the income category (e.g., WORK): ")
         desc = input("Introduce a description: ")
         self.database.new_income(amount=income, category=category, desc=desc)
-        input("Press any key to continue with other movements")
+        print_and_wait()
         self.w_option_menu()
 
+    @cmd_clear
     def set_expense(self):
-        os.system('cls')
         expense = input("Introduce your expense: ")
         expense = normalize_money_amount(expense)
         category = input("Introduce the expense category (e.g., GROCERY): ")
         desc = input("Introduce a description: ")
         self.database.new_expense(amount=expense, category=category, desc=desc)
-        input("Press any key to continue with other movements")
+        print_and_wait()
         self.w_option_menu()
 
+    @cmd_clear
+    def set_transaction(self):
+        bank_list = self.database.check_accounts()
+        bank_list.remove(self.database.target_bank)
+        to_bank = None
+        if len(bank_list) == 0:
+            print_and_wait("You have no more registered bank accounts. Can´t do a transaction.")
+            self.w_new_movement()
+        elif len(bank_list) == 1:
+            to_bank = bank_list[0]
+        else:
+            index = self._pick_option(bank_list, title="To which bank do you want to perform a transaction?")
+            to_bank = bank_list[index]
+        print(f"Transaction: {self.database.target_bank} -> {to_bank}")
+        amount = input("Introduce the amount of the transaction: ")
+        amount = normalize_money_amount(amount)
+        # todo check that the transaction is not higher than the total balance
+        desc = input("Introduce a description: ")
+        self.database.new_transaction(amount, to_bank, desc)
+        print_and_wait()
+        self.w_option_menu()
+
+    @cmd_clear
     def see_balance(self):
-        # TODO: When showing the current balance, display table with most recent movements
-        os.system('cls')
         current_balance = self.database.current_balance()
-        print(f"Your actual balance is {current_balance}")
-        input("Press any key to continue with other movements")
+        print_and_wait(f"Your actual balance is {current_balance}")
         self.w_option_menu()
 
+    @cmd_clear
     def select_bank(self):
         bank_list = self.database.check_accounts()
         if len(bank_list) == 0:
@@ -189,31 +222,44 @@ class UI:
             bank = self._request_bank_name()
             self.database.create_table(name=bank)
         elif len(bank_list) == 1:
-            print(f"Your account: {self.database.target_bank}")
-            input("Press any key to continue with other movements")
             bank = bank_list[0]
+            self.database.target_bank = bank
+            print_and_wait(f"Your account: {self.database.target_bank}")
         else:
             index = self._pick_option(bank_list, title="Select one of your accounts.")
             bank = bank_list[index]
         self.database.target_bank = bank
         self.w_option_menu()
 
+    @cmd_clear
+    def rename_owner(self):
+        new_name = self._request_username()
+        self.database.rename_owner(new_name)
+
     @staticmethod
     def _request_username():
         name = input("Name: ")
         surname = input("Surname: ")
-        user = f"{name.lower()}_{surname.lower()}"
+        user = f"{name.lower()}_{surname.lower()}.db"
         return user
 
     @staticmethod
     def _request_bank_name():
         bank = input("Bank: ")
-        return bank.lower()
+        return bank
 
     @staticmethod
     def _pick_option(options: List[str], title: str = "Select an option:") -> int:
         _, index = pick(options, title)
         return index
+
+    @staticmethod
+    @cmd_clear
+    def _exit():
+        print("Bye!")
+        time.sleep(0.5)
+        exit()
+
 
 
 
