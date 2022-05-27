@@ -13,7 +13,7 @@ from datetime import datetime
 
 from balance.account import Account
 from balance.utils import normalize_money_amount
-from balance.rsc import Concept
+from balance.rsc import Concept, Category
 
 
 class DataBase:
@@ -77,18 +77,27 @@ class DataBase:
         amount = normalize_money_amount(amount)
         self.new_entry(Concept.Expense, amount, category, desc)
 
+    def new_transaction(self, amount, from_bank, to_bank, desc):
+        amount = normalize_money_amount(amount)
+
+        try:
+            self.new_entry(Concept.Expense, amount, Category.Transaction, desc)
+        except NameError:
+            print(f"Can't get access to {from_bank} as it is not being managed at the moment.")
+
+        # TODO Keep working on this
+
     def current_balance(self):
-        # TODO REWORK: Read amounts and types and compute balance
         self.cursor.execute(
             """
             SELECT TYPE, AMOUNT FROM {} 
             """.format(self._target_bank)
         )
-        current_balance = 0
+        current_balance = 0.0
         for t, amount in self.cursor.fetchall():
             amount = -amount if t == Concept.Expense else amount
             current_balance += amount
-        return current_balance
+        return normalize_money_amount(current_balance)
 
     def check_accounts(self):
         self.cursor.execute(
@@ -103,6 +112,12 @@ class DataBase:
         val_query = '?, ' * len(values)
         query = f"""INSERT INTO {self._target_bank}{keys} VALUES({val_query[:-2]})"""
         self.cursor.execute(query, values)
+        self.connection.commit()
+
+    def delete_account(self):
+        self.cursor.execute(
+            """DROP TABLE {}""".format(self._target_bank)
+        )
         self.connection.commit()
 
     def sql_insert(self, **kwargs):

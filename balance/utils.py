@@ -10,7 +10,7 @@ Desc:
 
 def normalize_money_amount(val: str):
     # TODO: Think better way to implement
-    val = val.replace(',', '.')
+    val = str(val).replace(',', '.')
     if not '.' in val:
         val = val + '.00'
     else:

@@ -25,6 +25,8 @@ class Category(StrEnum):
     Leisure = "LEISURE"
     Transport = "TRANSPORT"
     Withdraw = "WITHDRAW"
+    Parking = "PARKING"
+    Transaction = "TRANSACTION"
     Other = "OTHER"
 
 
