@@ -1,6 +1,6 @@
-.idea
-balance.egg-info
-sandbox
+.idea/
+balance.egg-info/
+sandbox/
 */__pycache__
 
 db/*
