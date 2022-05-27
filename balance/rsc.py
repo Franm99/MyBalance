@@ -14,6 +14,10 @@ from moneyed import Money
 import time
 
 
+APP_NAME = 'MyBalance'
+DB_PATH = 'db'
+
+
 # ENUMS
 class Category(StrEnum):
     # Incomes
@@ -25,6 +29,8 @@ class Category(StrEnum):
     Leisure = "LEISURE"
     Transport = "TRANSPORT"
     Withdraw = "WITHDRAW"
+    Parking = "PARKING"
+    Transaction = "TRANSACTION"
     Other = "OTHER"
 
 
