@@ -150,9 +150,20 @@ class UI:
         elif index == 1:
             raise NotImplementedError("Delete Account")
         elif index == 2:
-            raise NotImplementedError("Modify your profile")
+            self.modify_profile()
         elif index == 3:
             self.option_menu()
+
+    def modify_profile(self):
+        index = self._pick_option(["Change Owner", "Change Bank", "Change movement concept", "Return"])
+        if index == 0:
+            raise NotImplementedError("Change Owner")
+        elif index == 1:
+            raise NotImplementedError("Change Bank")
+        elif index == 2:
+            raise NotImplementedError("Change movement concept")
+        elif index == 3:
+            self.settings()
 
     def select_bank(self):
         bank_list = self.database.check_accounts()
@@ -180,7 +191,7 @@ class UI:
     def _request_username():
         name = input("Name: ")
         surname = input("Surname: ")
-        user = f"{name.lower()}{surname.lower()}"
+        user = f"{name.lower()}_{surname.lower()}"
         return user
 
     @staticmethod
