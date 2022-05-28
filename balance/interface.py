@@ -38,7 +38,7 @@ class UI:
         self.window = None
         self.account = None
         self.database = Optional[DataBase]
-        self._init_ui()
+        # self._init_ui()
         self.w_start()
 
     def w_start(self):
@@ -55,27 +55,26 @@ class UI:
     def w_sign_in(self):
         os.system('cls')
         print("SIGN IN")
-        username = self._request_username()
-        user_db = f"{dir_path}/{username}"
+        owner = self._request_username()
+        owner_db = owner.db_path
 
-        if os.path.exists(user_db):
-            self.database = DataBase(user_db)
+        if os.path.exists(owner_db):
+            self.database = DataBase(owner_db)
             self.select_bank()
             print("Loading your account data. Wait a second...")
         else:
-            index = self._pick_option(["Try again", "Sign up"], f"No data found for {username}")
+            index = self._pick_option(["Try again", "Sign up"], f"No data found for {owner.full_name}")
             if index == 0:
                 self.w_sign_in()
             else:
-                self.w_sign_up(username)
+                self.w_sign_up(owner)
         self.w_option_menu()
 
-    def w_sign_up(self, username=None):
+    def w_sign_up(self, owner=Optional[Owner]):
         print("SIGN UP")
-        if not username:
-            username = self._request_username()
-        user_db = f"{dir_path}/{username}"
-        self.database = DataBase(user_db)
+        if not owner:
+            owner = self._request_username()
+        self.database = DataBase(owner.db_path)
         self.new_account()
         self.w_option_menu()
 
@@ -239,15 +238,15 @@ class UI:
 
     @cmd_clear
     def rename_owner(self):
-        new_name = self._request_username()
-        self.database.rename_owner(new_name)
+        owner = self._request_username()
+        self.database.rename_owner(owner)
 
     @staticmethod
-    def _request_username():
+    def _request_username() -> Owner:
         name = input("Name: ")
         surname = input("Surname: ")
-        user = f"{name.lower()}_{surname.lower()}.db"
-        return user
+        owner = Owner(name, surname, dir_path)
+        return owner
 
     @staticmethod
     def _request_bank_name():

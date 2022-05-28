@@ -14,7 +14,7 @@ from typing import List
 
 from balance.account import Account
 from balance.utils import normalize_money_amount
-from balance.rsc import Concept, Category, DB_PATH
+from balance.rsc import Concept, Category, Owner
 
 
 class DataBase:
@@ -112,10 +112,10 @@ class DataBase:
         os.remove(self.db_file)
         del self
 
-    def rename_owner(self, new_name):
+    def rename_owner(self, owner: Owner):
         self.connection.close()
-        os.rename(self.db_file, f"{os.path.dirname(self.db_file)}/{new_name}")
-        self.db_file = new_name
+        os.rename(self.db_file, f"{os.path.dirname(self.db_file)}/{owner.db_file}")
+        self.db_file = owner.db_path
         self.connection, self.cursor = self._connect_to_db()
 
     def _connect_to_db(self):
