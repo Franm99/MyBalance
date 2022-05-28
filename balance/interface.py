@@ -10,6 +10,7 @@ TODO: Try to use some module to improve the UI
 from strenum import StrEnum
 from pick import pick
 import os
+import sys
 import time
 from typing import Optional
 
@@ -17,6 +18,10 @@ from balance.account import Account
 from balance.rsc import *
 from balance.database import DataBase
 from balance.utils import normalize_money_amount, cmd_clear, print_and_wait
+
+dir_path = os.path.join(os.environ['APPDATA'], APP_NAME)
+if not os.path.exists(dir_path):
+     os.makedirs(dir_path)
 
 
 class Window(StrEnum):
@@ -33,6 +38,7 @@ class UI:
         self.window = None
         self.account = None
         self.database = Optional[DataBase]
+        self._init_ui()
         self.w_start()
 
     def w_start(self):
@@ -50,7 +56,7 @@ class UI:
         os.system('cls')
         print("SIGN IN")
         username = self._request_username()
-        user_db = f"{DB_PATH}/{username}"
+        user_db = f"{dir_path}/{username}"
 
         if os.path.exists(user_db):
             self.database = DataBase(user_db)
@@ -68,7 +74,7 @@ class UI:
         print("SIGN UP")
         if not username:
             username = self._request_username()
-        user_db = f"{DB_PATH}/{username}"
+        user_db = f"{dir_path}/{username}"
         self.database = DataBase(user_db)
         self.new_account()
         self.w_option_menu()
@@ -258,12 +264,10 @@ class UI:
     def _exit():
         print("Bye!")
         time.sleep(0.5)
-        exit()
+        sys.exit()
+        # os.system('exit')
 
-
-
-
-
-
-
-
+    @staticmethod
+    def _init_ui():
+        os.system('mode 70,20')
+        os.system('color b0')

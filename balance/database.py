@@ -114,7 +114,7 @@ class DataBase:
 
     def rename_owner(self, new_name):
         self.connection.close()
-        os.rename(self.db_file, f"{DB_PATH}/{new_name}")
+        os.rename(self.db_file, f"{os.path.dirname(self.db_file)}/{new_name}")
         self.db_file = new_name
         self.connection, self.cursor = self._connect_to_db()
 

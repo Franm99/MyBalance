@@ -1,7 +1,11 @@
 .idea/*
 balance.egg-info/*
 sandbox/*
-*/__pycache__
+*/__pycache__/*
 
 db/*
 !db/.gitkeep
+
+release/*
+*.spec
+
