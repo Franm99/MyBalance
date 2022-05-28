@@ -12,9 +12,10 @@ import sqlite3
 from datetime import datetime
 from typing import List
 
+
 from balance.account import Account
 from balance.utils import normalize_money_amount
-from balance.rsc import Concept, Category, Owner
+from balance.rsc import Concept, Category, Owner, Movement
 
 
 class DataBase:
@@ -34,6 +35,10 @@ class DataBase:
     def target_bank(self, bank):
         self._target_bank = bank
 
+    @property
+    def last_movements(self):
+        return self.get_last_movements()
+
     def create_table(self, name):
         self.cursor.execute(
             """
@@ -51,9 +56,10 @@ class DataBase:
         self.bank_list.append(name)
         self._target_bank = name
 
-    def new_entry(self, movement_type, amount, category, desc, bank):
+    def new_entry(self, movement_type: Concept, movement: Movement, bank: str) -> None:
+        # todo: Date can be added manually
         date = datetime.today().strftime('%m-%d-%Y')
-        entities = (date, movement_type, category, amount, desc)
+        entities = (date, movement_type, movement.category, movement.amount, movement.desc)
         self.cursor.execute(
             """
             INSERT INTO 
@@ -64,15 +70,15 @@ class DataBase:
         )
         self.connection.commit()
 
-    def new_income(self, amount, category, desc):
-        self.new_entry(Concept.Income, amount, category, desc, bank=self._target_bank)
+    def new_income(self, movement: Movement) -> None:
+        self.new_entry(Concept.Income, movement, self._target_bank)
 
-    def new_expense(self, amount, category, desc):
-        self.new_entry(Concept.Expense, amount, category, desc, bank=self._target_bank)
+    def new_expense(self, movement: Movement) -> None:
+        self.new_entry(Concept.Expense, movement, self._target_bank)
 
-    def new_transaction(self, amount, to_bank, desc):
-        self.new_entry(Concept.Expense, amount, Category.Transaction, desc, bank=self._target_bank)
-        self.new_entry(Concept.Income, amount, Category.Transaction, desc, bank=to_bank)
+    def new_transaction(self, movement: Movement, to_bank: str) -> None:
+        self.new_entry(Concept.Expense, movement, self._target_bank)
+        self.new_entry(Concept.Income, movement, to_bank)
 
     def current_balance(self):
         self.cursor.execute(
@@ -100,6 +106,10 @@ class DataBase:
         query = f"""INSERT INTO {self._target_bank}{keys} VALUES({val_query[:-2]})"""
         self.cursor.execute(query, values)
         self.connection.commit()
+
+    def get_last_movements(self):
+        # TODO: Keep going by here
+        pass
 
     def delete_account(self):
         self.cursor.execute(

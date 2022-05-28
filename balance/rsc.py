@@ -7,7 +7,7 @@ Desc:
 # Fill 
 """
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 from strenum import StrEnum
 from enum import Enum, auto
 from moneyed import Money
@@ -40,9 +40,18 @@ class Concept(StrEnum):
     """ Class defining the possible money movements that can be made within a balance account. """
     Income = "INCOME"
     Expense = "EXPENSE"
+    Transaction = "TRANSACTION"
 
 
 # DATACLASSES
+@dataclass()
+class Movement:
+    amount: str
+    category: Optional[Category]
+    concept: Concept
+    desc: str
+
+
 @dataclass
 class Entry:
     """ Concept entry with some descriptors. """

@@ -110,6 +110,7 @@ class UI:
         if index == 0:
             self.see_balance()
         elif index == 1:
+            # self.see_last_movements()
             raise NotImplementedError("Last movements")  # todo: implement pandas to print table
         elif index == 2:
             raise NotImplementedError("Export History")  # todo: implement pandas to generate graphics
@@ -173,21 +174,15 @@ class UI:
 
     @cmd_clear
     def set_income(self):
-        income = input("Introduce your income: ")
-        income = normalize_money_amount(income)
-        category = input("Introduce the income category (e.g., WORK): ")
-        desc = input("Introduce a description: ")
-        self.database.new_income(amount=income, category=category, desc=desc)
+        movement = self._request_movement_data(Concept.Income)
+        self.database.new_income(movement)
         print_and_wait()
         self.w_option_menu()
 
     @cmd_clear
     def set_expense(self):
-        expense = input("Introduce your expense: ")
-        expense = normalize_money_amount(expense)
-        category = input("Introduce the expense category (e.g., GROCERY): ")
-        desc = input("Introduce a description: ")
-        self.database.new_expense(amount=expense, category=category, desc=desc)
+        movement = self._request_movement_data(Concept.Expense)
+        self.database.new_expense(movement)
         print_and_wait()
         self.w_option_menu()
 
@@ -205,22 +200,24 @@ class UI:
             index = self._pick_option(bank_list, title="To which bank do you want to perform a transaction?")
             to_bank = bank_list[index]
         print(f"Transaction: {self.database.target_bank} -> {to_bank}")
-        amount = input("Introduce the amount of the transaction: ")
-        amount = normalize_money_amount(amount)
+        movement = self._request_movement_data(concept=Concept.Transaction)
         # todo check that the transaction is not higher than the total balance
-        desc = input("Introduce a description: ")
-        self.database.new_transaction(amount, to_bank, desc)
+        self.database.new_transaction(movement, to_bank)
         print_and_wait()
         self.w_option_menu()
 
     @cmd_clear
-    def see_balance(self):
+    def see_balance(self) -> None:
         current_balance = self.database.current_balance()
         print_and_wait(f"Your actual balance is {current_balance}")
         self.w_option_menu()
 
     @cmd_clear
-    def select_bank(self):
+    def see_last_movements(self):
+        print_and_wait(self.database.last_movements)
+
+    @cmd_clear
+    def select_bank(self) -> None:
         bank_list = self.database.check_accounts()
         if len(bank_list) == 0:
             print("Your account is not attached to any bank yet. Specify one. ")
@@ -252,6 +249,17 @@ class UI:
     def _request_bank_name():
         bank = input("Bank: ")
         return bank
+
+    @staticmethod
+    def _request_movement_data(concept: Concept):
+        amount = input(f"Introduce your {concept.lower()}: ")
+        amount = normalize_money_amount(amount)
+        if concept == concept.Transaction:
+            category = Category.Transaction
+        else:
+            category = input(f"Introduce movement category (WORK, GROCERY, BIZUM...): ")
+        desc = input("Introduce a description (optional): ")
+        return Movement(amount=amount, category=category, concept=concept, desc=desc)
 
     @staticmethod
     def _pick_option(options: List[str], title: str = "Select an option:") -> int:
