@@ -37,7 +37,7 @@ class UI:
     def __init__(self):
         self.window = None
         self.database = Optional[DataBase]
-        # self._init_ui()
+        self._init_ui()
         self.w_start()
 
     def w_start(self):
@@ -296,7 +296,7 @@ class UI:
     def __req_concept(self) -> str:
         concept = input(f"Please write the movement concept [Work/Grocery/...] or leave it empty [Other]: ")
         if not concept:
-            return Concept.General
+            return Concept.Other.value
         elif len(concept) > 20:
             print("The concept should not contain more than 20 characters.")
             self.__req_concept()
@@ -320,6 +320,7 @@ class UI:
     def _exit():
         print("Bye!")
         time.sleep(0.5)
+        os.system('color 0f')
         sys.exit()
         # os.system('exit')
 
