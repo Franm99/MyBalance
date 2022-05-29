@@ -10,7 +10,7 @@ import os
 import sqlite3
 # import time
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import pandas as pd
 
 
@@ -36,7 +36,7 @@ class DataBase:
         self._target_source = source
 
     @property
-    def last_movements(self):
+    def last_movements(self) -> Optional[str]:
         return self.get_last_movements()
 
     def create_table(self, name):
@@ -107,8 +107,10 @@ class DataBase:
         self.cursor.execute(query, values)
         self.connection.commit()
 
-    def get_last_movements(self):
+    def get_last_movements(self) -> Optional[str]:
         df = pd.read_sql_query(f"SELECT * FROM {self._target_source}", self.connection)
+        if df.empty:
+            return None
         df = df.sort_index(ascending=False)
         # Change amount sign based on the concept
         df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT']

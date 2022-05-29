@@ -27,7 +27,7 @@ def normalize_money_amount(val: Union[str, float]):
 
 def print_and_wait(*args, **kwargs):
     print(*args, **kwargs)
-    input("Press any key to continue with other movements")
+    input("\nPress any key to continue with other movements")
 
 
 def cmd_clear(func):

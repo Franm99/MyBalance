@@ -221,7 +221,11 @@ class UI:
     @cmd_clear
     def see_last_movements(self):
         # todo: Option to either enquiry older history or go to the main menu again
-        print_and_wait(self.database.last_movements)
+        last_movements = self.database.last_movements
+        if last_movements:
+            print_and_wait(self.database.last_movements)
+        else:
+            print_and_wait("No movements registered for this source yet.")
         self.w_option_menu()
 
     @cmd_clear
@@ -258,9 +262,11 @@ class UI:
         source = input("Source: ")
         return source
 
-    @staticmethod
-    def _request_movement_data(concept: Concept):
+    def _request_movement_data(self, concept: Concept):
         amount = input(f"Introduce your {concept.lower()}: ")
+        if any(c.isalpha() for c in amount):
+            print("Please introduce a money amount (XX.YY). No letters or symbols are allowed.")
+            self._request_movement_data(concept)
         amount = normalize_money_amount(amount)
         if concept == concept.Transaction:
             category = Category.Transaction
