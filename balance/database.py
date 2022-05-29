@@ -10,29 +10,38 @@ import os
 import sqlite3
 # import time
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+import pandas as pd
 
-from balance.account import Account
+
 from balance.utils import normalize_money_amount
-from balance.rsc import Concept, Category, DB_PATH
+from balance.rsc import Concept, Category, Owner, Movement
 
 
 class DataBase:
     def __init__(self, db_file: str):
         self.db_file = db_file
-        self._target_bank = None
+        self._target_source = None
         self.connection, self.cursor = self._connect_to_db()
-        self.bank_list = self.check_accounts()
-        if len(self.bank_list) == 1:
-            self._target_bank = self.bank_list[0]
+        self.source_list = self.check_sources()
+        if len(self.source_list) == 1:
+            self._target_source = self.source_list[0]
 
     @property
-    def target_bank(self) -> str:
-        return self._target_bank
+    def target_source(self) -> str:
+        return self._target_source
 
-    @target_bank.setter
-    def target_bank(self, bank):
-        self._target_bank = bank
+    @target_source.setter
+    def target_source(self, source):
+        self._target_source = source
+
+    @property
+    def last_movements(self) -> pd.DataFrame:
+        return self._get_last_movements()
+
+    @property
+    def current_balance(self) -> str:
+        return self._get_current_balance()
 
     def create_table(self, name):
         self.cursor.execute(
@@ -40,70 +49,82 @@ class DataBase:
             CREATE TABLE "{}" (
                                 "INDEX"	        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
                                 "DATE"	        TEXT    NOT NULL,
-                                "TYPE"	        TEXT    NOT NULL,
-                                "CATEGORY"	    TEXT    NOT NULL,
                                 "AMOUNT"	    NUMERIC NOT NULL,
+                                "CATEGORY"	    TEXT    NOT NULL,
+                                "CONCEPT"	    TEXT    NOT NULL,
                                 "DESCRIPTION"	TEXT
             );
             """.format(name)
         )
         self.connection.commit()
-        self.bank_list.append(name)
-        self._target_bank = name
+        self.source_list.append(name)
+        self._target_source = name
 
-    def new_entry(self, movement_type, amount, category, desc, bank):
-        date = datetime.today().strftime('%m-%d-%Y')
-        entities = (date, movement_type, category, amount, desc)
+    def new_entry(self, movement: Movement, source: str) -> None:
         self.cursor.execute(
             """
             INSERT INTO 
-            {}(DATE, TYPE, CATEGORY, AMOUNT, DESCRIPTION)
+            {}(DATE, AMOUNT, CATEGORY, CONCEPT, DESCRIPTION)
             VALUES (?, ?, ?, ?, ?)
-            """.format(bank),
-            entities
+            """.format(source),
+            movement.as_tuple()
         )
         self.connection.commit()
 
-    def new_income(self, amount, category, desc):
-        self.new_entry(Concept.Income, amount, category, desc, bank=self._target_bank)
+    def new_income(self, movement: Movement) -> None:
+        self.new_entry(movement, self._target_source)
 
-    def new_expense(self, amount, category, desc):
-        self.new_entry(Concept.Expense, amount, category, desc, bank=self._target_bank)
+    def new_expense(self, movement: Movement) -> None:
+        self.new_entry(movement, self._target_source)
 
-    def new_transaction(self, amount, to_bank, desc):
-        self.new_entry(Concept.Expense, amount, Category.Transaction, desc, bank=self._target_bank)
-        self.new_entry(Concept.Income, amount, Category.Transaction, desc, bank=to_bank)
+    def new_transaction(self, movement: Movement, to_source: str) -> None:
+        movement.category = Category.Expense.value
+        self.new_entry(movement, self._target_source)
+        movement.category = Category.Income.value
+        self.new_entry(movement, to_source)
 
-    def current_balance(self):
+    def _get_current_balance(self) -> str:
         self.cursor.execute(
             """
-            SELECT TYPE, AMOUNT FROM {} 
-            """.format(self._target_bank)
+            SELECT CATEGORY, AMOUNT FROM {} 
+            """.format(self._target_source)
         )
         current_balance = 0.0
         for t, amount in self.cursor.fetchall():
-            amount = -amount if t == Concept.Expense else amount
+            amount = -amount if t == Category.Expense else amount
             current_balance += amount
         return normalize_money_amount(current_balance)
 
-    def check_accounts(self) -> List[str]:
+    def check_sources(self) -> List[str]:
         self.cursor.execute(
             f"""SELECT name FROM sqlite_master WHERE type='table';"""
         )
-        bank_list = [i[0] for i in self.cursor.fetchall() if i[0] != "sqlite_sequence"]
-        return bank_list
+        source_list = [i[0] for i in self.cursor.fetchall() if i[0] != "sqlite_sequence"]
+        return source_list
 
     def _sql_insert(self, **kwargs):
         keys = f"({', '.join(kwargs.keys())})"
         values = list(kwargs.values())
         val_query = '?, ' * len(values)
-        query = f"""INSERT INTO {self._target_bank}{keys} VALUES({val_query[:-2]})"""
+        query = f"""INSERT INTO {self._target_source}{keys} VALUES({val_query[:-2]})"""
         self.cursor.execute(query, values)
         self.connection.commit()
 
-    def delete_account(self):
+    def _get_last_movements(self) -> pd.DataFrame:
+        df = pd.read_sql_query(f"SELECT * FROM {self._target_source}", self.connection)
+        if df.empty:
+            return None
+        df = df.sort_index(ascending=False)
+        # Change amount sign based on the Category
+        df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT']
+        last_movements = df[['DATE', 'AMOUNT', 'CONCEPT', 'DESCRIPTION']].head()
+        last_movements = last_movements.reset_index(drop=True)
+        # return last_movements.to_string(index=False)
+        return last_movements
+
+    def delete_source(self):
         self.cursor.execute(
-            """DROP TABLE {}""".format(self._target_bank)
+            """DROP TABLE {}""".format(self._target_source)
         )
         self.connection.commit()
 
@@ -112,10 +133,10 @@ class DataBase:
         os.remove(self.db_file)
         del self
 
-    def rename_owner(self, new_name):
+    def rename_owner(self, owner: Owner):
         self.connection.close()
-        os.rename(self.db_file, f"{os.path.dirname(self.db_file)}/{new_name}")
-        self.db_file = new_name
+        os.rename(self.db_file, f"{os.path.dirname(self.db_file)}/{owner.db_file}")
+        self.db_file = owner.db_path
         self.connection, self.cursor = self._connect_to_db()
 
     def _connect_to_db(self):
@@ -129,30 +150,15 @@ class DataBase:
     def sql_insert(self, **kwargs):
         self._sql_insert(**kwargs)
 
-    # def _table_exists(self, table_name: str) -> bool:
-    #     self.cursor.execute(
-    #         f"""SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table_name}';"""
-    #     )
-    #     return self.cursor.fetchone()[0] == 2
-
-
-def deb():
-    def check_if_table_exists(db="../db/franmoreno.db", name="account"):
-        try:
-            connection = sqlite3.connect(db)
-        except sqlite3.Error as error:
-            print(error)
-        cursor = connection.cursor()
-
-        cursor.execute(
-            f"""SELECT name FROM sqlite_master WHERE type='table';"""
-        )
-        print(cursor.fetchall())
-
-    check_if_table_exists()
-
 
 if __name__ == '__main__':
-    # db = DataBase('test.db')
-    # db.sql_insert(movement='INCOME', amount='200.00', desc='description')
-    deb()
+    file_path = r'C:\Users\Usuario\AppData\Roaming\MyBalance\francisco_moreno.db'
+    connection = sqlite3.connect(file_path)
+    df = pd.read_sql_query('SELECT * FROM BBVA', connection)
+    df = df.sort_index(ascending=False)
+    # Change amount sign based on the Category
+    df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT']
+    last_movements = df[['DATE', 'AMOUNT', 'CONCEPT', 'DESCRIPTION']].head()
+    # return last_movements.to_string(index=False)
+    last_movements = last_movements.reset_index(drop=True)
+    print(last_movements)
