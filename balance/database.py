@@ -14,7 +14,6 @@ from typing import List
 import pandas as pd
 
 
-from balance.account import Account
 from balance.utils import normalize_money_amount
 from balance.rsc import Concept, Category, Owner, Movement
 
@@ -22,19 +21,19 @@ from balance.rsc import Concept, Category, Owner, Movement
 class DataBase:
     def __init__(self, db_file: str):
         self.db_file = db_file
-        self._target_bank = None
+        self._target_source = None
         self.connection, self.cursor = self._connect_to_db()
-        self.bank_list = self.check_accounts()
-        if len(self.bank_list) == 1:
-            self._target_bank = self.bank_list[0]
+        self.source_list = self.check_sources()
+        if len(self.source_list) == 1:
+            self._target_source = self.source_list[0]
 
     @property
-    def target_bank(self) -> str:
-        return self._target_bank
+    def target_source(self) -> str:
+        return self._target_source
 
-    @target_bank.setter
-    def target_bank(self, bank):
-        self._target_bank = bank
+    @target_source.setter
+    def target_source(self, source):
+        self._target_source = source
 
     @property
     def last_movements(self):
@@ -54,10 +53,10 @@ class DataBase:
             """.format(name)
         )
         self.connection.commit()
-        self.bank_list.append(name)
-        self._target_bank = name
+        self.source_list.append(name)
+        self._target_source = name
 
-    def new_entry(self, movement_type: Concept, movement: Movement, bank: str) -> None:
+    def new_entry(self, movement_type: Concept, movement: Movement, source: str) -> None:
         # todo: Date can be added manually
         date = datetime.today().strftime('%m-%d-%Y')
         entities = (date, movement_type, movement.category, movement.amount, movement.desc)
@@ -66,26 +65,26 @@ class DataBase:
             INSERT INTO 
             {}(DATE, TYPE, CATEGORY, AMOUNT, DESCRIPTION)
             VALUES (?, ?, ?, ?, ?)
-            """.format(bank),
+            """.format(source),
             entities
         )
         self.connection.commit()
 
     def new_income(self, movement: Movement) -> None:
-        self.new_entry(Concept.Income, movement, self._target_bank)
+        self.new_entry(Concept.Income, movement, self._target_source)
 
     def new_expense(self, movement: Movement) -> None:
-        self.new_entry(Concept.Expense, movement, self._target_bank)
+        self.new_entry(Concept.Expense, movement, self._target_source)
 
-    def new_transaction(self, movement: Movement, to_bank: str) -> None:
-        self.new_entry(Concept.Expense, movement, self._target_bank)
-        self.new_entry(Concept.Income, movement, to_bank)
+    def new_transaction(self, movement: Movement, to_source: str) -> None:
+        self.new_entry(Concept.Expense, movement, self._target_source)
+        self.new_entry(Concept.Income, movement, to_source)
 
     def current_balance(self):
         self.cursor.execute(
             """
             SELECT TYPE, AMOUNT FROM {} 
-            """.format(self._target_bank)
+            """.format(self._target_source)
         )
         current_balance = 0.0
         for t, amount in self.cursor.fetchall():
@@ -93,32 +92,32 @@ class DataBase:
             current_balance += amount
         return normalize_money_amount(current_balance)
 
-    def check_accounts(self) -> List[str]:
+    def check_sources(self) -> List[str]:
         self.cursor.execute(
             f"""SELECT name FROM sqlite_master WHERE type='table';"""
         )
-        bank_list = [i[0] for i in self.cursor.fetchall() if i[0] != "sqlite_sequence"]
-        return bank_list
+        source_list = [i[0] for i in self.cursor.fetchall() if i[0] != "sqlite_sequence"]
+        return source_list
 
     def _sql_insert(self, **kwargs):
         keys = f"({', '.join(kwargs.keys())})"
         values = list(kwargs.values())
         val_query = '?, ' * len(values)
-        query = f"""INSERT INTO {self._target_bank}{keys} VALUES({val_query[:-2]})"""
+        query = f"""INSERT INTO {self._target_source}{keys} VALUES({val_query[:-2]})"""
         self.cursor.execute(query, values)
         self.connection.commit()
 
     def get_last_movements(self):
-        df = pd.read_sql_query(f"SELECT * FROM {self._target_bank}", self.connection)
+        df = pd.read_sql_query(f"SELECT * FROM {self._target_source}", self.connection)
         df = df.sort_index(ascending=False)
         # Change amount sign based on the concept
         df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT']
         last_movements = df[['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION']].head()
         return last_movements.to_string(index=False)
 
-    def delete_account(self):
+    def delete_source(self):
         self.cursor.execute(
-            """DROP TABLE {}""".format(self._target_bank)
+            """DROP TABLE {}""".format(self._target_source)
         )
         self.connection.commit()
 
