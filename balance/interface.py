@@ -110,8 +110,8 @@ class UI:
         if index == 0:
             self.see_balance()
         elif index == 1:
-            # self.see_last_movements()
-            raise NotImplementedError("Last movements")  # todo: implement pandas to print table
+            self.see_last_movements()
+            # raise NotImplementedError("Last movements")  # todo: implement pandas to print table
         elif index == 2:
             raise NotImplementedError("Export History")  # todo: implement pandas to generate graphics
         elif index == 3:
@@ -214,6 +214,7 @@ class UI:
 
     @cmd_clear
     def see_last_movements(self):
+        # todo: Option to either enquiry older history or go to the main menu again
         print_and_wait(self.database.last_movements)
 
     @cmd_clear

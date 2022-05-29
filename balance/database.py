@@ -11,6 +11,7 @@ import sqlite3
 # import time
 from datetime import datetime
 from typing import List
+import pandas as pd
 
 
 from balance.account import Account
@@ -108,8 +109,12 @@ class DataBase:
         self.connection.commit()
 
     def get_last_movements(self):
-        # TODO: Keep going by here
-        pass
+        df = pd.read_sql_query(f"SELECT * FROM {self._target_bank}", self.connection)
+        df = df.sort_index(ascending=False)
+        # Change amount sign based on the concept
+        df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT']
+        last_movements = df[['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION']].head()
+        return last_movements.to_string(index=False)
 
     def delete_account(self):
         self.cursor.execute(
@@ -147,19 +152,13 @@ class DataBase:
 
 
 def deb():
-    def check_if_table_exists(db="../db/franmoreno.db", name="account"):
-        try:
-            connection = sqlite3.connect(db)
-        except sqlite3.Error as error:
-            print(error)
-        cursor = connection.cursor()
-
-        cursor.execute(
-            f"""SELECT name FROM sqlite_master WHERE type='table';"""
-        )
-        print(cursor.fetchall())
-
-    check_if_table_exists()
+    file_path = r"C:\Users\Usuario\AppData\Roaming\MyBalance\francisco_moreno.db"
+    connection = sqlite3.connect(file_path)
+    cursor = connection.cursor()
+    df = pd.read_sql_query("SELECT * FROM BBVA", connection)
+    df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT']
+    last_movements = df[['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION']]
+    print(last_movements)
 
 
 if __name__ == '__main__':

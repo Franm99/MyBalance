@@ -9,9 +9,10 @@ Desc:
 import os
 import functools
 import time
+from typing import Union
 
 
-def normalize_money_amount(val: str):
+def normalize_money_amount(val: Union[str, float]):
     # TODO: Think better way to implement
     val = str(val).replace(',', '.')
     if not '.' in val:
