@@ -70,9 +70,9 @@ class UI:
                 self.w_sign_up(owner)
         self.w_option_menu()
 
-    def w_sign_up(self, owner=Optional[Owner]):
+    def w_sign_up(self, owner: Optional[Owner] = None):
         print("SIGN UP")
-        if not owner:
+        if owner is None:
             owner = self._request_username()
         self.database = DataBase(owner.db_path)
         self.new_account()
