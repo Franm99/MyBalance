@@ -6,7 +6,7 @@ Date: 06/05/2022
 Desc: 
 # Fill 
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 from typing import List, Optional
 from strenum import StrEnum
 from enum import Enum, auto
@@ -21,7 +21,7 @@ DB_PATH = 'db'
 
 
 # ENUMS
-class Category(StrEnum):
+class Concept(StrEnum):
     # Incomes
     Bizum = "BIZUM"
     Work = "WORK"
@@ -36,7 +36,7 @@ class Category(StrEnum):
     Other = "OTHER"
 
 
-class Concept(StrEnum):
+class Category(StrEnum):
     """ Class defining the possible money movements that can be made within a balance account. """
     Income = "INCOME"
     Expense = "EXPENSE"
@@ -44,12 +44,16 @@ class Concept(StrEnum):
 
 
 # DATACLASSES
-@dataclass()
+@dataclass
 class Movement:
+    date: str
     amount: str
-    category: Optional[Category]
-    concept: Concept
-    desc: str
+    category: str
+    concept: str
+    desc: Optional[str]
+
+    def as_tuple(self):
+        return astuple(self)
 
 
 @dataclass
@@ -98,8 +102,5 @@ class Owner:
 
 
 if __name__ == '__main__':
-    owner = Owner("Fran", "Moreno", dir_path="../db")
-    if not owner:
-        print("No owner")
-    else:
-        print("Owner exists")
+    movement = Movement("05-20-2022", "20.25", Category.Expense.value, "House", "House expenses")
+    print(movement.as_tuple())

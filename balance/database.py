@@ -45,9 +45,9 @@ class DataBase:
             CREATE TABLE "{}" (
                                 "INDEX"	        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
                                 "DATE"	        TEXT    NOT NULL,
-                                "TYPE"	        TEXT    NOT NULL,
-                                "CATEGORY"	    TEXT    NOT NULL,
                                 "AMOUNT"	    NUMERIC NOT NULL,
+                                "CATEGORY"	    TEXT    NOT NULL,
+                                "CONCEPT"	    TEXT    NOT NULL,
                                 "DESCRIPTION"	TEXT
             );
             """.format(name)
@@ -56,39 +56,38 @@ class DataBase:
         self.source_list.append(name)
         self._target_source = name
 
-    def new_entry(self, movement_type: Concept, movement: Movement, source: str) -> None:
-        # todo: Date can be added manually
-        date = datetime.today().strftime('%m-%d-%Y')
-        entities = (date, movement_type, movement.category, movement.amount, movement.desc)
+    def new_entry(self, movement: Movement, source: str) -> None:
         self.cursor.execute(
             """
             INSERT INTO 
-            {}(DATE, TYPE, CATEGORY, AMOUNT, DESCRIPTION)
+            {}(DATE, AMOUNT, CATEGORY, CONCEPT, DESCRIPTION)
             VALUES (?, ?, ?, ?, ?)
             """.format(source),
-            entities
+            movement.as_tuple()
         )
         self.connection.commit()
 
     def new_income(self, movement: Movement) -> None:
-        self.new_entry(Concept.Income, movement, self._target_source)
+        self.new_entry(movement, self._target_source)
 
     def new_expense(self, movement: Movement) -> None:
-        self.new_entry(Concept.Expense, movement, self._target_source)
+        self.new_entry(movement, self._target_source)
 
     def new_transaction(self, movement: Movement, to_source: str) -> None:
-        self.new_entry(Concept.Expense, movement, self._target_source)
-        self.new_entry(Concept.Income, movement, to_source)
+        movement.category = Category.Expense.value
+        self.new_entry(movement, self._target_source)
+        movement.category = Category.Income.value
+        self.new_entry(movement, to_source)
 
     def current_balance(self):
         self.cursor.execute(
             """
-            SELECT TYPE, AMOUNT FROM {} 
+            SELECT CATEGORY, AMOUNT FROM {} 
             """.format(self._target_source)
         )
         current_balance = 0.0
         for t, amount in self.cursor.fetchall():
-            amount = -amount if t == Concept.Expense else amount
+            amount = -amount if t == Category.Expense else amount
             current_balance += amount
         return normalize_money_amount(current_balance)
 
@@ -112,9 +111,9 @@ class DataBase:
         if df.empty:
             return None
         df = df.sort_index(ascending=False)
-        # Change amount sign based on the concept
-        df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT']
-        last_movements = df[['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION']].head()
+        # Change amount sign based on the Category
+        df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT']
+        last_movements = df[['DATE', 'AMOUNT', 'CONCEPT', 'DESCRIPTION']].head()
         return last_movements.to_string(index=False)
 
     def delete_source(self):
@@ -144,25 +143,3 @@ class DataBase:
 
     def sql_insert(self, **kwargs):
         self._sql_insert(**kwargs)
-
-    # def _table_exists(self, table_name: str) -> bool:
-    #     self.cursor.execute(
-    #         f"""SELECT count(name) FROM sqlite_master WHERE type='table' AND name='{table_name}';"""
-    #     )
-    #     return self.cursor.fetchone()[0] == 2
-
-
-def deb():
-    file_path = r"C:\Users\Usuario\AppData\Roaming\MyBalance\francisco_moreno.db"
-    connection = sqlite3.connect(file_path)
-    cursor = connection.cursor()
-    df = pd.read_sql_query("SELECT * FROM BBVA", connection)
-    df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['TYPE'] == 'EXPENSE', 'AMOUNT']
-    last_movements = df[['DATE', 'AMOUNT', 'CATEGORY', 'DESCRIPTION']]
-    print(last_movements)
-
-
-if __name__ == '__main__':
-    # db = DataBase('test.db')
-    # db.sql_insert(movement='INCOME', amount='200.00', desc='description')
-    deb()

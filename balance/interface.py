@@ -5,7 +5,6 @@ Date: 01/05/2022
 
 Desc: 
 TODO: Try to implement threads for the UI management
-TODO: Try to use some module to improve the UI
 """
 from strenum import StrEnum
 from pick import pick
@@ -13,10 +12,11 @@ import os
 import sys
 import time
 from typing import Optional
+from datetime import datetime
 
 from balance.rsc import *
 from balance.database import DataBase
-from balance.utils import normalize_money_amount, cmd_clear, print_and_wait
+from balance.utils import normalize_money_amount, cmd_clear, print_and_wait, normalize_date
 
 dir_path = os.path.join(os.environ['APPDATA'], APP_NAME)
 if not os.path.exists(dir_path):
@@ -116,7 +116,6 @@ class UI:
             self.see_balance()
         elif index == 1:
             self.see_last_movements()
-            # raise NotImplementedError("Last movements")  # todo: implement pandas to print table
         elif index == 2:
             raise NotImplementedError("Export History")  # todo: implement pandas to generate graphics
         elif index == 3:
@@ -180,14 +179,14 @@ class UI:
 
     @cmd_clear
     def set_income(self):
-        movement = self._request_movement_data(Concept.Income)
+        movement = self._request_movement_data(Category.Income)
         self.database.new_income(movement)
         print_and_wait()
         self.w_option_menu()
 
     @cmd_clear
     def set_expense(self):
-        movement = self._request_movement_data(Concept.Expense)
+        movement = self._request_movement_data(Category.Expense)
         self.database.new_expense(movement)
         print_and_wait()
         self.w_option_menu()
@@ -206,7 +205,7 @@ class UI:
             index = self._pick_option(source_list, title="Select which source will receive the transaction: ")
             to_source = source_list[index]
         print(f"Transaction: {self.database.target_source} -> {to_source}")
-        movement = self._request_movement_data(concept=Concept.Transaction)
+        movement = self._request_movement_data(Category.Transaction)
         # todo check that the transaction is not higher than the total balance
         self.database.new_transaction(movement, to_source)
         print_and_wait()
@@ -262,18 +261,47 @@ class UI:
         source = input("Source: ")
         return source
 
-    def _request_movement_data(self, concept: Concept):
-        amount = input(f"Introduce your {concept.lower()}: ")
+    def _request_movement_data(self, category: Category):
+        amount = self.__req_amount(category)
+        concept = self.__req_concept()
+        date = self.__req_date()
+        desc = self.__req_desc()
+        return Movement(date, amount, category.value, concept, desc)
+
+    def __req_amount(self, category: Category) -> str:
+        amount = input(f"Please write your {category.lower()} [XX.YY]: ")
         if any(c.isalpha() for c in amount):
-            print("Please introduce a money amount (XX.YY). No letters or symbols are allowed.")
-            self._request_movement_data(concept)
-        amount = normalize_money_amount(amount)
-        if concept == concept.Transaction:
-            category = Category.Transaction
+            print("A money amount can't contain letters or symbols.")
+            self.__req_amount(category)
+        return normalize_money_amount(amount)
+
+    def __req_date(self) -> str:
+        date = input(f"Please write the movement date [MM-DD-YY] (if today, skip this field): ")
+        if not date:
+            return datetime.today().strftime('%m-%d-%Y')
         else:
-            category = input(f"Introduce movement category (WORK, GROCERY, BIZUM...): ")
-        desc = input("Introduce a description (optional): ")
-        return Movement(amount=amount, category=category, concept=concept, desc=desc)
+            if normalize_date(date):
+                return normalize_date(date)
+            else:
+                print("The date format is not correct.")
+                self.__req_date()
+
+    def __req_concept(self) -> str:
+        concept = input(f"Please write the movement concept [Work/Grocery/...] or leave it empty [Other]: ")
+        if not concept:
+            return Concept.General
+        elif len(concept) > 20:
+            print("The concept should not contain more than 20 characters.")
+            self.__req_concept()
+        else:
+            return concept
+
+    def __req_desc(self):
+        desc = input("Write a description [optional]: ")
+        if len(desc) > 70:
+            print("The description should not contain more than 70 characters")
+            self.__req_desc()
+        return desc
 
     @staticmethod
     def _pick_option(options: List[str], title: str = "Select an option:") -> int:
@@ -292,3 +320,19 @@ class UI:
     def _init_ui():
         os.system('mode 70,20')
         os.system('color b0')
+
+
+def dev():
+    from dateutil import parser
+    date = input("Date [MM-DD-YY]: ")
+    try:
+        date = parser.parse(date)
+    except parser.ParserError:
+        print("Introduce a valid date")
+        dev()
+
+    print(date.strftime("%m-%d-%y"))
+
+
+if __name__ == '__main__':
+    dev()
