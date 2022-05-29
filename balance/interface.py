@@ -13,6 +13,7 @@ import sys
 import time
 from typing import Optional
 from datetime import datetime
+from tabulate import tabulate
 
 from balance.rsc import *
 from balance.database import DataBase
@@ -135,14 +136,12 @@ class UI:
             self.w_option_menu()
 
     def w_your_profile(self):
-        index = self._pick_option(["Update owner", "Modify movement concept", f"Delete {APP_NAME} profile", "Return"])
+        index = self._pick_option(["Update owner", f"Delete {APP_NAME} profile", "Return"])
         if index == 0:
             self.rename_owner()
         elif index == 1:
-            raise NotImplementedError("Modify movement concept")
-        elif index == 2:
             self.delete_profile()
-        elif index == 3:
+        elif index == 2:
             self.w_settings()
 
     def w_exit(self):
@@ -206,14 +205,22 @@ class UI:
             to_source = source_list[index]
         print(f"Transaction: {self.database.target_source} -> {to_source}")
         movement = self._request_movement_data(Category.Transaction)
-        # todo check that the transaction is not higher than the total balance
+        if movement.amount > self.database.current_balance:
+            confirmation = self.w_confirmation(
+                "WARNING: Transaction ({}) higher than current balance ({}). Proceed with maximum available?".format(
+                    movement.amount, self.database.current_balance))
+            if confirmation:
+                movement.amount = self.database.current_balance
+            else:
+                print_and_wait("The transaction was canceled")
+                self.w_new_movement()
         self.database.new_transaction(movement, to_source)
         print_and_wait()
         self.w_option_menu()
 
     @cmd_clear
     def see_balance(self) -> None:
-        current_balance = self.database.current_balance()
+        current_balance = self.database.current_balance
         print_and_wait(f"Your actual balance is {current_balance}")
         self.w_option_menu()
 
@@ -221,8 +228,8 @@ class UI:
     def see_last_movements(self):
         # todo: Option to either enquiry older history or go to the main menu again
         last_movements = self.database.last_movements
-        if last_movements:
-            print_and_wait(self.database.last_movements)
+        if not last_movements.empty:
+            print_and_wait(tabulate(last_movements, headers='keys', showindex=False))
         else:
             print_and_wait("No movements registered for this source yet.")
         self.w_option_menu()

@@ -36,8 +36,12 @@ class DataBase:
         self._target_source = source
 
     @property
-    def last_movements(self) -> Optional[str]:
-        return self.get_last_movements()
+    def last_movements(self) -> pd.DataFrame:
+        return self._get_last_movements()
+
+    @property
+    def current_balance(self) -> str:
+        return self._get_current_balance()
 
     def create_table(self, name):
         self.cursor.execute(
@@ -79,7 +83,7 @@ class DataBase:
         movement.category = Category.Income.value
         self.new_entry(movement, to_source)
 
-    def current_balance(self):
+    def _get_current_balance(self) -> str:
         self.cursor.execute(
             """
             SELECT CATEGORY, AMOUNT FROM {} 
@@ -106,7 +110,7 @@ class DataBase:
         self.cursor.execute(query, values)
         self.connection.commit()
 
-    def get_last_movements(self) -> Optional[str]:
+    def _get_last_movements(self) -> pd.DataFrame:
         df = pd.read_sql_query(f"SELECT * FROM {self._target_source}", self.connection)
         if df.empty:
             return None
@@ -114,7 +118,9 @@ class DataBase:
         # Change amount sign based on the Category
         df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT']
         last_movements = df[['DATE', 'AMOUNT', 'CONCEPT', 'DESCRIPTION']].head()
-        return last_movements.to_string(index=False)
+        last_movements = last_movements.reset_index(drop=True)
+        # return last_movements.to_string(index=False)
+        return last_movements
 
     def delete_source(self):
         self.cursor.execute(
@@ -143,3 +149,16 @@ class DataBase:
 
     def sql_insert(self, **kwargs):
         self._sql_insert(**kwargs)
+
+
+if __name__ == '__main__':
+    file_path = r'C:\Users\Usuario\AppData\Roaming\MyBalance\francisco_moreno.db'
+    connection = sqlite3.connect(file_path)
+    df = pd.read_sql_query('SELECT * FROM BBVA', connection)
+    df = df.sort_index(ascending=False)
+    # Change amount sign based on the Category
+    df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT'] = -df.loc[df['CATEGORY'] == 'EXPENSE', 'AMOUNT']
+    last_movements = df[['DATE', 'AMOUNT', 'CONCEPT', 'DESCRIPTION']].head()
+    # return last_movements.to_string(index=False)
+    last_movements = last_movements.reset_index(drop=True)
+    print(last_movements)
